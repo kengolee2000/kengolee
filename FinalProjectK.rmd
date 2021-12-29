@@ -1,0 +1,296 @@
+---
+title: "Washington State's 2016 Minimum Wage Hike on the Domestic Labor Force"
+author: "Kengo Lee - 1004909762"
+date: December 17, 2021
+output:
+  pdf_document: default
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(openintro)
+library(DT)
+library(dplyr)
+```
+
+# Abstract
+
+This paper discusses the effectiveness of Washington State's minimum wage hike in 2016 on its domestic labor market. The paper begins with the motivation of this study, which is followed by the source of the data utilized in this research paper. Next, we process the required data so we are able to run the difference in difference technique to test if the policy had a causational effect on the overall health of the labor force. Finally, we discuss the impacts of the minimum wage hike on our chosen variables.
+
+# Introduction
+
+  In the recent years, populism has been growing in the west, especially within the political sphere. Populism is defined as "A political approach that strives to appeal to ordinary people who feel that their concerns are disregarded by established elite groups"(D. Kenny, 2017). By definition, populism conveys an ideology that constitutes the 'ordinary people' against the 'elite' establishments from fulfilling their political preferences. However, why is there such a negative connotation around this concept? Is because the 'elite' tells us it is fallacious, or is populism fundamentally and inherently flawed?
+  
+  This research study will examine whether the 16% minimum wage increase in Washington State benefits the domestic labor force, or whether it has been utilized as a political tool to gain popularity within the general population. To quantify the overall health of the labor force, an analysis of the wage rate, employment rate, population, and personal current transfer receipts will be conducted. To mitigate the extraneous factors and selection bias, the variables above will be compared to the neighboring state, Idaho, who have not experienced a minimum wage hike in more than a decade. Idaho will be a exemplary state for comparison as it shares various similarities and an almost-homogeneous economical structure as Washington State. Most importantly, Idaho will act as a control state in order to perform a Difference in Differences analysis on the effect of Washington State's minimum wage hike from USD 9.74 to US 11.00 in 2016 (Industries, 2021).
+  
+  In the political realm, populism is generally manipulative in practice. It encourages political leaders to do almost anything the majority desires, even if it is wrong. It often disregards facts, individual rights and views from experts. There exists certain risks and dead weight loss' when constructing policies, such as the minimum wage, around what is popular and not ethically correct. I hypothesize that the increase in minimum wage in Washington State will ironically cause an increase in poverty levels, decrease in the relative employment rate and, will not improve labor force conditions domestically.
+
+# Data
+
+
+## Data Collection Process
+
+  The following observational data was collected by the US Bureau of Economic Analysis (BEA), a public source of objective data about the US economy. The labor force data from the BEA is a byproduct of the administration of various federal and state government social insurance programs and tax codes (BEA, 2021). The US personal income and employment data set, found in the BEA data bank, includes 28 variables (wage rate, population, employment levels, etc.) for every US state from the years 1929 to 2020. Within this data set, to measure the overall health of Washington States labor force in comparison to the control state, Idaho, we will extract the following variables from both states.
+
+1) Personal Current Transfer Receipts. This measures the personal transfer payments and benefits received from the government, and is aimed to measure the degree of poverty within the population.
+
+2) Wages and Salary Employment. This measures the number of people employed in the state and excludes self employed individuals.
+
+3) Wages and Salary. The dollar value of the payroll within the employed.
+
+4) Population, a control variable within each state.
+
+  One of the drawbacks of the employment data from the BEA is that the data set does not include a measurement for income disparity within the domestic labor force. Although the wage rate is a significant quantifier of overall wealth in the labor force, we are not able to observe the distribution of income between various income groups. Furthermore, the data set includes the employment rate but not the unemployment rate. This is mainly because the unemployment level in a population is a strenuous variable to quantify due to the widespread of definitions that exists. It is difficult to determine an individual's "willingness and ability to work" and weather they are underemployed within the labor force (Glen G, 1979). This acts as a slight barrier to determine the true "health" and well-being of a labor force.
+
+## Data Summary
+
+The following data set "WashingtonIdaho.clean.csv", pulled from the Bureau of Economic Analysis' data bank, includes 47 variables from the 4324 labor force observations conducted across Idaho and Washington State between 1929 and 2020.
+
+```{r, include = TRUE}
+rawdata <- read.csv("WashingtonIdaho.clean.csv")
+cleandata <- rawdata[c(4,14,22,13,27,37,45,36),]#selecting rows
+cleandata[cleandata=="(NA)"] <- NA #replacing the string with R recognized keyword NA.
+cleandata <- cleandata[, colSums(is.na(cleandata))==0] #for any column with NA remove it
+cleandata <- cleandata[,-c(1,3,56)] #remove redundant columns #remove 2020
+```
+
+To clean the data, we reduced the 47 variables to 8 variables and 736 observations essential to measure the overall labor market condition. The 8 variables consisted of the 4 of the variables we will analyze for both Idaho and Washington State.To further clean the data, we removed 304 columns with missing or incomplete data.The numerical summary of our findings do not include the year 2020 due to the peculiarity of the data as a result of COVID-19. The data from the year 2020 will not play a significant importance towards our hypothesis regarding the 2016 minimum wage increase, and the exclusion of the data has resulted in a more focused result. Furthermore, the data included in the year 2020 was heavily influenced by government restrictions and had a over shadowing effect on our investigation.
+
+```{r, include=TRUE}
+cleanmat <- as.matrix(cleandata[,-c(1,2)]) 
+year <- sapply(names(cleandata[,-c(1,2)]), function(x) substring(x,2))
+cleanmat <- unname(cleanmat)
+year <- unname(year)
+#sample data processing for employment:
+employment.ID.diff <- (c(cleanmat[3,],NA)-c(NA,cleanmat[3,]))*100 / (c(NA,cleanmat[3,]))
+employment.ID.diff <- employment.ID.diff[!is.na(employment.ID.diff)]
+employment.WA.diff <- (c(cleanmat[7,],NA)-c(NA,cleanmat[7,]))*100 / (c(NA,cleanmat[7,]))
+employment.WA.diff <- employment.WA.diff[!is.na(employment.WA.diff)]
+#data processing for population, wages, and current transfers not shown.
+```
+We then calculate the percentage annual growth of each variable. We chose to calculate the relative growth of each variable instead of the absolute values to obtain a more balanced comparison of the two states. The data processing above portrays an example of the calculation of relative growth for employment. In general, for attribute $A$ and year $t$ the relative growth is calculated as follows:
+$$\frac{A_t - A_{t-1}}{A_{t-1}} \times 100 \% $$
+```{r, include=FALSE}
+pop.ID.diff <- (c(cleanmat[1,],NA)-c(NA,cleanmat[1,]))*100/c(NA,cleanmat[1,])
+pop.ID.diff <- pop.ID.diff[!is.na(pop.ID.diff)]
+pop.WA.diff <- (c(cleanmat[5,],NA)-c(NA,cleanmat[5,]))*100/c(NA,cleanmat[5,])
+pop.WA.diff <- pop.WA.diff[!is.na(pop.WA.diff)]
+
+wages.ID.diff <- (c(cleanmat[2,],NA)-c(NA,cleanmat[2,]))*100/(c(NA,cleanmat[2,]))
+wages.ID.diff <- wages.ID.diff[!is.na(wages.ID.diff)] 
+wages.WA.diff <- (c(cleanmat[6,],NA)-c(NA,cleanmat[6,]))*100 / (c(NA,cleanmat[6,]))
+wages.WA.diff <- wages.WA.diff[!is.na(wages.WA.diff)]
+
+ctransfer.ID.diff <- (c(cleanmat[4,],NA)-c(NA,cleanmat[4,]))*100/(c(NA,cleanmat[4,]))
+ctransfer.ID.diff <- ctransfer.ID.diff[!is.na(ctransfer.ID.diff)] 
+ctransfer.WA.diff <- (c(cleanmat[8,],NA)-c(NA,cleanmat[8,]))*100 / (c(NA,cleanmat[8,]))
+ctransfer.WA.diff <- ctransfer.WA.diff[!is.na(ctransfer.WA.diff)]
+```
+
+\begin{center}
+Table 1.0: Mean and Standard Deviation of Variables | WA = Washington State, ID = Idaho State
+\end{center}
+
+|Variables           |  Mean Difference (%)| Standard Deviation|
+|:------------------|------------------:|-----------------:|
+|Population ID       | 1.88|   0.97|
+|Population WA       | 1.66|   0.71|
+|Employment ID       | 2.42|   2.47|
+|Employment WA       | 2.09|   2.38|
+|Wages ID            | 6.89|   4.06|
+|Wages WA            | 6.98|   4.02|
+|Current Transfer ID | 9.22|   5.22|
+|Current Transfer WA | 8.84|   6.18|
+
+From Table 1.0, we can see that over the 52 years, the state of Idaho has experienced a 15% higher growth rate of employment compared to Washington state. Furthermore, both Washington State and Idaho have portrayed a similar change in volatility for all 4 variables. This strengthens the purpose of Idaho being a suitable controlled comparison for Washington State. Finally, the poverty level, measured by the mean growth of current transfers, in Idaho is evidently higher than in Washington. A possible reason for this could be the difference in overall economic wealth between the two states. Historically, Washington State has approximately double the GDP per capita in comparison to Idaho State (Statista, 2021).
+
+```{r, echo = TRUE}
+plot(year[-1], employment.WA.diff, type="l", xlab= "Year", 
+     ylab="Difference in Employment (%)", ylim=c(-6,8), 
+     main= "Figure 1.0: Percentage Annual Growth in Employment", lwd=2.0)
+lines(year[-1], employment.ID.diff, col="red",lwd =2.0) 
+abline(v="2016", col="blue", lwd=3.0, lty=3)
+legend("bottom", legend=c("Washington (WA)", "Idaho (ID)", "2016 WA Min-Wage Hike"),
+col=c("black", "red", "blue"), lwd=1.5 , cex=0.9, lty= c(1,1,3))
+```
+As portrayed on Figure 1.0, the percentage annual growth of employment rates for both Washington and Idaho State follow a similar trend. The employment rate is correlated with the global and US domestic economic cycles (Klinger, 2018). For example, in the 2008 Great Recession, both Washington and Idaho experienced a significant dip in employment growth. As for the 2016 minimum wage hike in Washington State, it is evident that Idaho experienced a slight increase in employment while Washington State encountered a decrease in employment growth. Although this is inline with our hypothesis, we are not able to conclude a causation from this correlation. To further investigate this correlation with the 2016 minimum wage hike in Washington state, we will have to conduct a difference in differences (DID) analysis to mitigate the extraneous factors and selection bias within this variable.
+
+```{r, include =TRUE}
+plot(year[-1], wages.WA.diff, type="l", xlab= "Year", 
+     ylab="Difference in Wages (%)", ylim=c(-5,18), 
+     main= "Figure 2.0: Percentage Annual Growth in Wages", lwd=2.0)
+lines(year[-1], wages.ID.diff, col="red",lwd =2.0) 
+abline(v="2016", col="blue", lwd=3.0, lty=3)
+legend("bottom", legend=c("Washington (WA)", "Idaho (ID)", "2016 WA Min-Wage Hike"),
+       col=c("black", "red", "blue"), lwd=1.5 , cex=0.9, lty=c(1,1,3))
+```
+Figure 2.0 represents the growth in the annual wage rate for the past 52 years in both states. Again, the change in the annual wage rate has followed a similar trend over the years. However in 1986, only Idaho experienced a sharpe decline in wage growth. This was a result of the state passing the Right To Work (RTW) law which significantly reduced the power of labor unions in Idaho State (Dinlersoz, Emin M, 2002). This is validation that the state economic environments can crucially affect the labor conditions domestically. Visually, the 2016 minimum wage hike in Washington is correlated with a more moderate increase in wage growth compared to Idaho who experienced a steeper increase in wage rates. This is again in tune with my hypothesis, however, we are unable to draw conclusions with a comparison in growth rates.
+
+```{r, include =TRUE}
+plot(year[-1], ctransfer.WA.diff, type="l", xlab= "Year", 
+     ylab="Difference in Current Transfers (%)", ylim=c(-1,35), 
+     main= "Figure 3.0: Percentage Annual Growth in Current Transfers", lwd=2.0)
+lines(year[-1], ctransfer.ID.diff, col="red",lwd =2.0) 
+abline(v="2016", col="blue", lwd=3.0, lty=3)
+legend("top", legend=c("Washington (WA)", "Idaho (ID)", "2016 WA Min-Wage Hike"),
+       col=c("black", "red", "blue"), lwd=1.5 , cex=0.9, lty=c(1,1,3))
+```
+Figure 3.0 represents the annual growth in current transfers for Idaho and Washington State. Both states follow a very similar correlation over the 52 years. After the implementation of the increased minimum wage in Washington State, they experienced a sharp decline in Current Transfer growth rate which opposes our hypothesis as the poverty level in Washington was predicted to in fact increase due to the hike. It is highly probable that the reason for the sharp decline in Current Transfer rates could not be related to the minimum wage increase. There could be factors such as the time taken for the minimum wage hike to affect the labor market that has not been accounted for in this observation.
+
+All analysis for this report was programmed using `R version 4.0.4`.
+
+# Methods
+
+To mitigate the extraneous factors and selection bias, we will conduct a difference in differences (DID) analysis on the data processed. The DID technique is a method of analysis for observational data, it allows the observation imitate an experiment by quantifying the change in the predicted control variable and the change in the predicted effected variable (Donald, 2007). If the differences are linear, or can be seen on a relatively direct line, then it can be deduced that the cause and effect are related. The DID is not a perfect method, however, it is a adequate first approximation (Dimick, 2014).
+
+In our analysis, we are not able to draw conclusions by looking merely at the absolute values of our selected variable data in Washington state. This is because the correlation does not imply causation. For example, if the employment rate decreases significantly after the minimum wage hike in Washington State, we cannot confirm that the cause of the decrease is related to the policy change as it could have equally been a cause of another external factor, like a nation wide recession. To improve accuracy between causation and correlation, we will compare the labor market data of Washington State to a control state using the DID technique.
+
+In our DID analysis, we will be comparing the effect of the 2016 minimum wage hike in Washington State compared to our control state Idaho. Washington State's neighbor, Idaho, has not experienced a minimum wage hike in the last decade, and both states have very similar economic characteristics, making Idaho an ideal state for comparison. The method of analysis includes taking the average of employment, wages, and current transfers, for both states, three years prior and three years after the minimum wage hike in Washington State. Utilizing the parallel like assumption, we will compare the difference in differences between the 2 states for each variable (Mora, 2012). For example, if the minimum wage hike showed no effect on the labor market, we will expect a parallel line between the differences. This is because the difference in variable x before the minimum wage hike in comparison to each state, should in theory, be similar to the difference after the minimum wage hike, thus portraying a parallel trend.
+
+This is a sample calculation for the DID in the employment rate.
+```{r, include = TRUE}
+before <- c(44,45,46) #three years before
+after <- c(48,49,50)  #three years after
+
+employment.ID.before <- mean(employment.ID.diff[before])
+employment.ID.after <- mean(employment.ID.diff[after])
+employment.WA.before <- mean(employment.WA.diff[before])
+employment.WA.after <- mean(employment.WA.diff[after])
+
+did.employment.before <- employment.WA.before - employment.ID.before
+did.employment.after <- employment.WA.after - employment.ID.after
+did.employment <- did.employment.before - did.employment.after
+
+#calculation for wages, current transfers, and population not shown.
+```
+Firstly, we calculated mean employment in each state for the chosen 6 years (3 prior and 3 after 2016). Then, the difference mean employment before the minimum wage hike between the two states is calculated, this will be done for the difference after the minimum wage hike as well. Finally, we can calculate the overall difference before and after, to obtain the DID results.
+
+# Results 
+
+The difference in differences calculation for all three variables has shown that the external effects have in fact influenced the overall labor market before and after the 2016 minimum wage hike.
+Table 2.0: Difference in Differences for Employment, Wages and Current Transfers
+
+|Variables           |  Difference in Difference (%)|
+|:------------------|------------:|
+|Employment       | 56|
+|Wages       | 83|
+|Current Transfers       | 65|  
+
+The change numerical summaries above are calculated by computing the percentage change in difference in differences over the 2 states. For Employment, Wages and Current Transfers there is a 56%,83%, and 65% change after the implementation of the 2016 minimum wage hike respectively. With these values we are certain that the external factor affecting the labor market. If the labor market showed no affect to the minimum wage hike, we would see the change in differences to be close to 0%, thus portraying a parallel trend. 
+```{r, include=FALSE}
+wages.ID.before <- mean(wages.ID.diff[before])
+wages.ID.after <- mean(wages.ID.diff[after])
+wages.WA.before <- mean(wages.WA.diff[before])
+wages.WA.after <- mean(wages.WA.diff[after])
+
+did.wages.before <- wages.WA.before - wages.ID.before
+did.wages.after <- wages.WA.after - wages.ID.after
+did.wages <- did.wages.before - did.wages.after
+
+ctransfer.ID.before <- mean(ctransfer.ID.diff[before])
+ctransfer.ID.after <- mean(ctransfer.ID.diff[after])
+ctransfer.WA.before <- mean(ctransfer.WA.diff[before])
+ctransfer.WA.after <- mean(ctransfer.WA.diff[after])
+
+did.ctransfer.before <- ctransfer.WA.before - ctransfer.ID.before
+did.ctransfer.after <- ctransfer.WA.after - ctransfer.ID.after
+did.ctransfer <- did.ctransfer.before - did.ctransfer.after
+
+```
+The figures below represent the DID analysis for each variable.
+```{r, include =TRUE}
+plot(0:1, c(employment.WA.before, employment.WA.after), type="l",
+     ylim=c(2,3.5), xaxt="n",xlab="Difference in Employment (%)", 
+     ylab="Before and after WA Min-wage Hike", 
+     main="Figure 4.0: DID in Employment",lwd=2.0)
+lines(0:1, c(employment.ID.before, employment.ID.after), col="red",lwd=2.0)
+lines(0:1, c(employment.ID.before, employment.ID.after)-0.1581154, col="red",lwd=2.0,lty=3)
+axis(1,at=0:1,labels=c("Before","After"))
+legend("top", legend=c("Washington (WA)", "Idaho (ID)","DID Assumption"),
+       col=c("black", "red","red"), lwd=1.5 , cex=0.9,lty=c(1,1,3))
+```
+Figure 4.0 represents the DID analysis for employment in Washington State compared to Idaho. The distance between the two parallel red lines represents the constant difference in outcome between Idaho and Washington State. If the minimum wage hike were to have no effect on the employment rate, the black line (Washington State) would be the constant unobserved counter factual outcome trend represented by the red dotted line. The intervention (minimum wage hike) effect in this case would be the distance between the ends of the black and red line, minus the distance between the two parallel lines. This will be equivalent to the 83% change shown on Table 2.0. For employment, the minimum wage hike caused the employment rate to decrease by 83%. This is in order with my hypothesis that the minimum wage hike would influence the employment rate negatively. This can be explained by the theory behind minimum wage; greater number of people are willing to work at higher wages, however, due to the rise in costs for businesses, smaller number of jobs will be available at a higher minimum wage.
+```{r, include =TRUE}
+plot(0:1, c(wages.WA.before, wages.WA.after), type="l", xaxt="n", 
+     ylim=c(4.5,8),xlab="Difference in Wages (%)", 
+     ylab="Before and after WA Min-wage Hike", 
+     main="Figure 5.0: DID in Wages between",lwd=2.0)
+lines(0:1, c(wages.ID.before, wages.ID.after), col="red",lwd=2.0)
+lines(0:1, c(wages.ID.before, wages.ID.after)+0.4139513, col="red",lwd=2.0,lty=3)
+axis(1,at=0:1,labels=c("Before","After"))
+legend("top", legend=c("Washington (WA)", "Idaho (ID)","DID Assumption"),
+       col=c("black", "red","red"), 
+      lwd=1.5 , cex=0.9,lty=c(1,1,3))
+```
+Figure 5.0 shows the effect of the minimum wage on wage levels. The smaller distance between the end of the black like and the dotted red line, compared to figure 4.0, show that the policy has less of an influence on the wage levels. However, the results show that the wages grew at an higher rate after the policy change. This is not in accordance with my hypothesis as total wages levels were predicted to remain the same or decrease due to the higher costs for employers. This is not a major issue to the overall hypothesis due to the minimal change that has resulted, as the effects on the wage level was initially ambiguous. This is because rise in absolute wage levels (due to the higher minimum wages) is offset by the decrease in employment levels, and we were unsure on how much or how little the decrease in employment rate were going to offset the rise in wage levels.
+
+```{r, include =TRUE}
+plot(0:1, c(ctransfer.WA.before, ctransfer.WA.after), type="l", ylim=c(4,6.5) , 
+     xaxt="n",xlab="Difference in Current Transfers (%)", 
+     ylab="Before and after WA Min-wage Hike", 
+     main="Figure 6.0: DID in Current Transfers",lwd=2.0)
+lines(0:1, c(ctransfer.ID.before, ctransfer.ID.after), col="red", lwd=2.0)
+lines(0:1, c(ctransfer.ID.before, ctransfer.ID.after)-0.5179042, col="red", lwd=2.0,lty=3)
+axis(1,at=0:1,labels=c("Before","After"))
+legend("top", legend=c("Washington (WA)", "Idaho (ID)","DID Assumption"),
+       col=c("black", "red","red"), lwd=1.5 , cex=0.9,lty=c(1,1,3))
+
+```
+
+Figure 6.0 represents the effect of the minimum wage level on Current Transfers. The current transfer level was initially aimed to represent the poverty level in a given state. The results above show that Washington State experienced a higher than expected decrease in Current Transfers compared to Idaho State. My hypothesis has predicted the opposite, and anticipated the poverty levels to actually increase more as unemployment rises. Possible explanations for this change could in fact be due to the Idaho (control state) and not Washington state. Idaho has undergone a change in requirements for financial aid during the last decade, making it easier for individuals to receive transfer payments, thus being a possible exposition for the comparison shown above (Sjoquist, 2015). 
+
+# Conclusions
+
+Our initial hypothesis predicted that due to the increase in minimum wage levels in Washington, the poverty levels would increase, wage levels experience a decline in growth, and an overall decrease in employment level domestically. The variables chosen were supposed to mimic the overall health of the labor force in Washington State and our control state, Idaho. The results are not exactly in order with my hypothesis, however, the variable that portrayed a largest change in the DID analysis (Table 2.0) was employment rate. The decline in employment rate is arguably the utmost important variable in our study due to the fact that it measures the absolute value of the number of people employed. On the other hand, the variables: wages and current transfers are the total dollar amount, and does not determine the distribution of the total amount among individuals. Due to the results of wages and current transfers being ambiguous in relation to our hypothesis, we are not able to draw a conclusion on the overall health of the labor force, nevertheless, we have still shown that the increase in minimum wage did in fact decrease overall employment levels in Washington State. This conveys the flaws of determining policies on the most popular opinion. In this case, the promise of an increase in minimum wage levels was the most popular opinion among the general population of Washington State, in spite of that, the policy led to a decrease in employment levels. In the politics, promising policies based on populism is often used to gain votes and generally manipulative in practice. It encourages political leaders to do almost anything the majority desires, even if it is wrong. It often disregards facts and views from experts. This can be an issue, especially in modern western societies, as economic decisions are determined through the most popular opinion and not what is best for society.
+
+
+## Weaknesses
+
+As observed in our results, current transfers can be a inaccurate representation of the poverty level in each state. The change in current transfers can be driven by several factors such as the requirements to be able to receive financial aid from the government. To improve upon this in the future, we should consider measuring more factors related to poverty levels instead of relying on one singular variable such as the current transfer levels. An example would be measuring a combination of Current Transfers, number of people that fall under the LCO (Low income cut off), and the Market Basket Measure. By diversifying the measurement of poverty, we are able to eliminate the risk of unrelated external factors influencing the poverty level of the population.
+
+Furthermore, the wage level may not be an ideal representation of the health of a labor force. The wage levels do not incorporate the income distribution in a population. Even if we saw an increase in wage levels, it is difficult determine weather the overall well being of the labor force improves. To improve this, I would suggest re-weighting the variables when determining the overall labour force health. For example, variables should be weighted in order of importance and relevance towards the health of a labor force. In our scenario, the employment levels should definitely receive more weight over the wage and current transfer levels in each state.
+
+## Next Steps and Discussions
+
+Difference in difference estimation is an interesting method to portray rough estimations and intuitive interpretations, we are able to obtain causal effects through observational data, given the assumptions. An interesting step after this would be to investigate policies on the overall economy and not strictly the labor market. By using the difference in differences analysis, we are able to roughly draw causation from correlations. It would be interesting to see which policies in the past have been merely due to populism and the desire to gain votes. Can this be a flaw in democratic systems?
+
+
+# Bibliography
+
+1) D. Kenny, P., 2017. Oxford Academic (Oxford University Press) Tumblr. [online] Oxford Academic (Oxford University Press) Tumblr. Available at: <https://oupacademic.tumblr.com/post/167064208022/populism-definition-politics> [Accessed 14 December 2021].
+
+2) Industries, W., 2021. History of Washington State's Minimum Wage. [online] Lni.wa.gov. Available at: <https://lni.wa.gov/workers-rights/wages/minimum-wage/history-of-washington-states-minimum-wage> [Accessed 14 December 2021].
+
+3) BEA, 2021. State Personal Income and Employment: Concepts, Data Sources, and Statistical Methods. [online] Available at: <https://www.bea.gov/system/files/methodologies/SPI-Methodology.pdf> [Accessed 14 December 2021].
+
+4) Cain, Glen G. "The unemployment rate as an economic indicator." Monthly Lab. Rev. 102 (1979): 24.
+
+5) Mahalingam, Brinda, and Wafa Hakim Orman. "GDP and energy consumption: A panel analysis of the US." Applied Energy 213 (2018): 208-218.
+
+6) Klinger, Sabine, and Enzo Weber. "GDP-employment decoupling in Germany." Structural Change and Economic Dynamics 52 (2020): 82-98.
+
+7) Dinlersoz, Emin M., and Ruben Hernandez-Murillo. "Did'right-to-work'work for Idaho?." Review-Federal Reserve Bank of St. Louis 84.3 (2002): 29-29.
+
+8) Donald, Stephen G., and Kevin Lang. "Inference with difference-in-differences and other panel data." The review of Economics and Statistics 89.2 (2007): 221-233.
+
+9) Dimick, Justin B., and Andrew M. Ryan. "Methods for evaluating changes in health care policy: the difference-in-differences approach." Jama 312.22 (2014): 2401-2402.
+
+10) Mora, Ricardo, and Iliana Reggio. "Treatment effect identification using alternative parallel assumptions." (2012).
+
+11) Sjoquist, David L., and John V. Winters. "State merit‐based financial aid programs and college attainment." Journal of Regional Science 55.3 (2015): 364-390.
+
+\newpage
+
+# Appendix
+
+## Ethics Statement
+
+* This research paper is revolved around the use of public open data. To see the true effects of a policy change on labor market characteristics, the data should ethically be accessible to everyone to avoid asymmetric information between political parties and the general population.
+
+* This paper only uses observational data to determine correlations to derive conclusions. When experimental studies are conducted to obtain data, ethical issues can arise which can limit our ability to acquire essential data.
+
+#Data
+```{r, include =TRUE}
+glimpse(cleandata)
+
+```
