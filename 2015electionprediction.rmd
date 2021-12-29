@@ -1,0 +1,780 @@
+---
+title: "Prediction of 2025 Election Outcome"
+author: "Group Number 46: Sophie Berkowitz, Kengo Lee, Youssef Sarofim, Fatema Versi"
+date: November 5, 2021
+subtitle: STA304 - Assignment 
+output:
+  pdf_document: default
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(openintro)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+
+
+## Introduction
+
+The Canadian government is structured as a parliamentary democracy with a single-member plurality electoral system. This structure calls for the right for every citizen to vote for their candidate of choice in a Federal election who will represent their riding if elected into the House of Commons. Ridings are electoral districts that exist within the country and among provinces. In Canada, a candidate has the freedom to run for election under either a chosen party or independently. The candidate with the most votes, relative to their competition, wins the riding’s Member of Parliament (MP). The Prime Minister of Canada is appointed based on the political party that determines the majority of the Members of Parliament, which demonstrates a majority government. However, if there is no majority among the MPs, then the minority government is defined by the party with the most seats.  
+
+The goal of this report is to predict the results of the next Canadian federal election using frequentist logistic regression and post-stratification based on survey data. Forecasting election results is an interest of many Canadian citizens that routinely utilizes surveys to predict the anticipated election. Academic literature indicates that 62% of American expert political forecasting was accurate (Graefe, 2018). Political forecasting and psephology is of interest to many enthusiastic citizens, as political events, especially federal elections, have a strong effect on Canadian citizens. We will use a logistic regression model to incorporate key social, economic, and political factors as explanatory variables in forecasting the 2025 election. Performing the logistic regression and poststratification provides a data-based method to investigate the relationship between the the likelihood of a certain party winning - NDP, Liberal, or Conservative, against various predictor variables, such as province, income, or age. Therefore, this statistical analysis aids us in predicting the future of the upcoming Canadian federal election. This report will aim to answer whether age, education level, province, visible minority, marital status, birth place, first language, or family income are factors that predict the overall popular vote of the next Canadian federal election. We hypothesize that the predictors, age, education level, province, and visible minority are factors that predict the overall popular vote of the next election. 
+
+The survey data in this report belongs to the Canadian Election Study, which provides insight on Canadian voting characteristics that will inform the country's future elections (CES, 2019). The specific survey data that we will utilize, is from the 2019 Canadian Election Study which published a large data collection via a random-digit-dialed internet survey (CES, 2019). The census data that will be used in the post stratification, comes from the general social survey, which is a government program that collects in-depth census data on Canadians (GSS, ). 
+
+
+## Data
+
+In our analysis we will be utilizing two data sets, one will be used for our modeling and one will be used to overlay that model and make inferences using the population. The first of these two data sets is a Canadian Election Study Survey data set henceforth called **Survey data** and the second is the General Social Survey data henceforth referred to as the **Census data**. 
+
+## Data Collection Process:
+
+**Survey Data:**
+
+The Survey data set is a Canadian election study from the year 2019 resulting from a phone survey made to 4021 people with 278 variable(s). The goal of this study was to find the trends in voter habits and the variables across several scientific disciplines that can potentially influence voter choice and thus, election outcome. These include but are not limited to social, economical and political issues. The study also aimed to find the changes during the campaigns between elections and the electoral differences between Canada and other countries (Stephenson, Harell, Rubenson and Loewen CES Phone Survey 2019, 4). This data was collected using the CATI procedure i.e. the computer assisted telephone interviews (5). 66% of the survey phone calls were mobile numbers or wireless telephones and 34% were landline telephones. The data set has a total of 30 variable groups, from which we have picked a mixture of personal statistics (age, family income etc.) and group statistics (e.g. province).
+
+In order to obtain this data we will be using the package cesR that has been downloaded from a github extension. We then load the library using the r function library(cesR). Within this package there are survey codes which we can call using the function get_cescodes(). ces2019_phone is the code we will be using as the data set is from the phone survey conducted in 2019. This data is stored in a vector called survey_data and will be used throughout. However, we will be using a cleaned version of this file that we will load into the survey_data vector using the read_csv() function. The file name is ces2019-phone_clean.csv. 
+
+
+**Census Data:**
+
+The Census data we have used here is from the General Social Survey for family in the year 2017. This is data that is collected over the year for the purposes of policy making and to assess the household living conditions by collecting a series of variables explaining social trends (CRDCN, 2017). Every year a different topic is assessed. 
+
+The cleaned version of this file was loaded into a data frame called census_data using the read_csv function.
+
+
+```{r, include = FALSE}
+
+# Here you can load in and clean the census data (you may need to do the cleaning in a separate R script). 
+
+census_data <- read_csv("gss_clean.csv")
+
+```
+
+
+```{r, include = FALSE}
+# Here you can load in and clean the survey data (you may need to do the cleaning in a separate R script). 
+# First, if you don't already have it, install the devtools package:
+#install.packages("devtools")
+
+# Now use devtools to install the cesR package directly from Github:
+devtools::install_github("hodgettsp/cesR")
+
+# Load it like any other package:
+library(cesR)
+
+# There are many different CES datasets, and they have unique codes. 
+# See them with the get_cescodes() function:
+
+get_cescodes()
+
+# Now pick one, let's try ces2019_phone
+
+get_ces("ces2019_phone")
+
+survey_data <- ces2019_phone
+
+# Alternative to what is in the comments above, I have locally loaded
+# and (mildly) cleaned the CES2019 phone data and have included it in here.
+# We can load it in:
+survey_data <- read_csv("ces2019-phone_clean.csv")
+
+
+```
+
+
+# Data Cleaning Process
+
+## Survey Data Cleaning:
+
+We will begin by describing the cleaning process for the survey data. We have structured the cleaning process of our data to make it easier for us to perform our regression analysis later on.
+
+We begin by first creating a new data frame called survey_data_liberal. This will be subject to the respective parties we will be performing our regression on. The next step is to call on the survey_data that we had created initially and storing it in the new data frame.
+
+The survey data set has been coded by the usage of numbers for outcomes (categories) and variables by the creators of the data set. Each category is assigned a positive or negative number for a respective category for each digitized variable. For the first part of this we will be using the string values for simplification the coded numerical values will be given in brackets. 
+
+We then filter this data which is done using the filter function in the dplyr library. Firstly by removing all variables whose rows contain the value 'NA'. These rows signify that the answer provided for that value was considered invalid. Therefore, we remove the values as they serve no value to our analysis. It is performed by the r function "is.na()" with the "!" symbol before it signifying that it must be removed. This is done for all the variables we have chosen for the new data set. The next part of the filtering process is to remove all rows in our variables that had the option of refusing an answer or those who do not know the answer to the questions (Our select variables). This is done once again using the "!" symbol in front of the selected value of our variable.
+ 
+The next part of our cleaning is the mutate function. This function is once again found in the dplyr library. Here we create and rename our variables from the original data set to store into our new data frame. We create the variable age by subtracting the year of the survey (2019) from the year of birth(q2). We create a new variable called birth place which is created by a logical function "ifelse". This function examines the birth place variable(q64), if the answer selected by candidate is Canada then it returns "Canada" and if it is other than Canada it returns "Outside Canada". All answers of "don't know" were discarded in the filtering process. A similar procedure is repeated for first language which returns "English" if they respond to  (q67): the question of the first language they learnt to speak as English or "Non-English" otherwise. Marital status which returns "Married" if the candidate answers positively to (p50) and "Un-Married" if they answer in the negative. The variable Visible_minority_group is created the same way by examining the candidates answer to the (q66a_1): the question of whether they belong to Canadian ethnic group or not. If they answered positively then they were "Not a visible minority" and if they answered in the negative then they were considered "visible minority". This is in compliance with the definiton of minority groups accepted in Canada. The next variable created was the variable vote, that takes the values 1,2,3 depending on the answer of the candidate as to which party they were voting for (q11). 1 corresponds to the liberal party, 2 to the conservative party and 3 to the NDP party. The last variable created was vote_liberal. This variable is subject to change as this process is repeated for the other two parties. This variable was created to be binary having the values 1 and 0. If the candidates response to the question(q11) of which party they will be voting for was "liberal" then the value 1 was returned and if it was something else then the value 0 was returned. All the answers selected belonging to the don't know or refused category were removed. This process was replicated for the Conservative and the liberal party. The significance of creating a 1-0 binary outcome was to enable us to perform a linear logistic regression later on. Province(q4), education level(q61) and family_income(q70) were merely renamed by assiging their number formats to their respective strings using the "=" function.
+
+Lastly, using the select function all of our newly mutated variables were selected in addition to our renamed variables and stored in our newly created data frame. The list of variables now in our new data frame are age, education_level, birth_place, province, first_language, marital_status, family_income, Visible_minority_group, vote, vote_liberal, vote_conservative, vote_ndp. 
+
+
+As mentioned previously all these variables/questions and their responses were digitized. We therefore wanted our data set to only have strings for easier analysis to be performed and for easier visualization. The next part of this process explains the renaming process. We begin by first creating a data frame in which we store our newly cleaned data. We then examine one of our selected variables that still have numerical categories (Province, education level, vote and family_income) row wise using the function row wise. We then pump this into a mutate function that takes the variable and assigns each of the numerical values its respective string defined in the data set. The education level variable is the only one whose numerical to string mapping is changed to match that of the census data set. This newly created data set is pumped into another one in an iterative process until all variables of the previous data set have string values and no longer have numerical values except for the binary vote category. 
+
+
+```{r, include = FALSE}
+#### You will need to update/clean the code below based off the variables you want to use in your post-stratification.
+
+#Begin by creating an empty data frame called survey_data2
+#Use filter function in addition to is.na() to remove NA values from family income and marital status
+#Remove the people from all chosen variables who refuse to answer or those who don't know 
+#Remove all the values which are missing from the variables
+#These include the education level, 
+#use mutate function to create new variables
+#Age = 2019 (year of survey) - year they were born
+#Birth_place = If born in Canada (2) then  return "In Canada" else return "Outside Canada"
+#first_language = if peoples first language learnt was "english" return "English" else return "Non-English"
+#Marital_status = if people married then return "married" otherwise return "Un-married"
+#Visible minority group looks at all those who selected canada as their ethnic group and assigns them the value of "Non-visible minority" and if they did not select canada then it assigns them "Visible minority"
+#Vote_liberal = If they expect to vote for labor party (1) return 1 otherwise return 0. This is a binary variable
+#Lastly select all our variables of interest from the data set which include: age, education_level, birth_place, province, first_language, marital_status, family_income, vote_liberal
+#LEAVES US WITH 260 OBS
+
+survey_data1 <- survey_data %>% 
+  filter(!is.na(q2),  !is.na(q70), !(q70==-8),   !(q70==-9), !is.na(q61),
+         !(q61==-8), !(q61==-9), !is.na(q64), !(q64==-8), !(q64==-9), !(q64==-8),
+         !is.na(p50), !(p50==-8), !(p50==-9), !is.na(q11), !(q11==-8), !(q11==-9),
+         !is.na(q67), !(q66a_1==-8), !(q66a_1==-9), !(q11==-9), !(q11==-8),
+         !(q11==4), !(q11==5), !(q11==6), !(q11==7), !(q11==8), !(q11==9),
+         !(q11==10), ) %>% 
+  mutate(age = 2019 - q2,
+         education_level = q61,
+         birth_place = ifelse(q64==2, "In Canada", "Outside Canada"),
+         province = q4,
+         first_language = ifelse(q67==1, "English", "Non-English"),
+         marital_status = ifelse(p50==1, "Married", "Un-married"),
+         family_income = q70,
+         Visible_minority_group = ifelse(q66a_1==1, "Not a visible minority",
+                                         "Visible minority"),
+         vote = q11,
+         vote_conservative = ifelse(q11==2, 1, 0),
+         vote_liberal = ifelse(q11==1, 1, 0),
+         vote_ndp = ifelse(q11==3, 1, 0)) %>%
+  select(age, education_level, birth_place, province, first_language,
+         marital_status, family_income, Visible_minority_group, vote,
+         vote_conservative, vote_liberal, vote_ndp)
+
+
+survey_dataclean1 <- survey_data1 %>% 
+  rowwise() %>% 
+  mutate(education_level = case_when(
+    education_level==1 ~ "Less than high school diploma or its equivalent",
+    education_level==2 ~ "Less than high school diploma or its equivalent",
+    education_level==3 ~ "Less than high school diploma or its equivalent",
+    education_level==4 ~ "Less than high school diploma or its equivalent",
+    education_level==5 ~ "High school diploma or a high school equivalency certificate",
+    education_level==6 ~ "High school diploma or a high school equivalency certificate",
+    education_level==7 ~ "College, CEGEP or other non-university certificate or di...",
+    education_level==8 ~
+"University certificate or diploma below the bachelor's level",
+    education_level==9 ~ "Bachelor's degree (e.g. B.A., B.Sc., LL.B.)",
+    education_level==10 ~
+"University certificate, diploma or degree above the bach...",
+    education_level==11 ~
+"University certificate, diploma or degree above the bach..."
+  ))
+
+survey_dataclean2 <- survey_dataclean1 %>% 
+  rowwise() %>% 
+  mutate(vote = case_when(
+    vote==1 ~ "Liberal",
+    vote==2 ~ "Conservative",
+    vote==3~ "NDP"
+  ))
+
+survey_dataclean_10 <- survey_dataclean2 %>% 
+  rowwise() %>% 
+  mutate(family_income = case_when(
+    family_income==1 ~ "No Income",
+    family_income==2 ~ "$1 to $30,000",
+    family_income==3~ " $30,000 to $60,000",
+    family_income==4 ~ " $60,001 to $90,000",
+    family_income==5 ~ "$90,001 to $110,000",
+    family_income==6 ~ "$110,001 to $150,000",
+    family_income==7 ~ " $150,001 to $200,000",
+    family_income==8 ~ "More than $200,000"
+  ))
+
+survey_dataclean <- survey_dataclean_10 %>% 
+  rowwise() %>% 
+  mutate(province = case_when(
+    province==1 ~ "Newfoundland and Labrador",
+    province==2 ~ "Prince Edward Island",
+    province==3~ "Nova Scotia",
+    province==4 ~ "New Brunswick",
+    province==5 ~ "Quebec",
+    province==6 ~ "Ontario",
+    province==7 ~ "Manitoba",
+    province==8 ~ "Saskatchewan",
+    province==9 ~ "Alberta",
+    province==10 ~ "British Columbia"
+  ))
+
+```
+
+
+
+
+
+## Census Data Cleaning:
+
+This data unlike the survey data was already stored in strings. A very similar algorithm to the one applied to the survey data was used to clean it. We begin by creating a new data frame called census_data2. We then call on our census data set and begin cleaning the new formed data frame. We begin by using the "!" along with the is.na() function that takes on all our variables and removes the values that are NA. We then use the "!" function for the place of birth variable to remove all the people who answered the question of their place of birth by responding with "Don't know". The same was done for those who answered "don't know" to the question of whether they belong to a minority group. We also removed the education level of those who answered that their maximum education level was Trade certificate or diploma. This was to allow us to compare the census and survey data set. This category lacked an equivalent in the survey data set therefore, was best removed for our remaining analysis. To maintain uniformity and allow comparison between data sets the same variables present in survey data set were selected for census data. Therefore all new variables created were the same for both data sets and all renamed variables using the mutate function were the same.  
+
+```{r, include = FALSE}
+#Begin by creating a new data frame of the name census_data2
+#using filter function with !is.na() to remove all rows that have NA values
+#using filter function to remove people who Don't know their place of birth
+#Using filter function to remove people who Don't know if they are a visible minority
+#mutating new variables: age, where we round the age to nearest decimal point,
+#birth_place = if birth place is "born in Canada" then return "In Canada" if birth place is Outside Canada then return "Outside Canada"
+#first language = if language people know is french and english then we assume their first language is English or if they know "English only" then we assume their first language is English
+#marital_status = if they are married then return married and if anything else then return un-married
+#select all of our desired variables which include: age, education_level, province, marital_status, birth_place, first_language, family_income, visible_minority_group
+#LEAVES US WITH 19511 OBS 
+
+
+census_data2 <- census_data %>% 
+  filter(!is.na(age), !is.na(education),
+         !(education=="Trade certificate or diploma"), !is.na(place_birth_canada),
+         !is.na(province), !is.na(language_home), !is.na(marital_status),
+         !is.na(income_family), !(place_birth_canada == "Don't know"),
+         !(vis_minority== "Don't know"), !is.na(vis_minority)) %>%
+  mutate(age=round(age),
+         education_level = education,
+         birth_place = ifelse(place_birth_canada == 'Born in Canada', "In Canada",
+                              "Outside Canada"),
+         province = province,
+         first_language = ifelse(language_home == 'English and French'|
+                                   language_home == 'English' | language_home ==
+                                   'English and non-official language' |
+                                   language_home == 'English, French and non-official
+                                   language', "English",
+                                 "Non-English"),
+         family_income = income_family,
+         Visible_minority_group = vis_minority,
+         marital_status = ifelse(marital_status == 'Married', "Married",
+                                 "Un-Married"))%>% 
+  select(age, education_level, province, Visible_minority_group, marital_status,
+         birth_place, first_language, family_income)
+
+```
+
+
+## Summary Measures and Important Variables
+
+The variables of importance are age, education_level, province, Visible_minority_group, marital_status, birth_place, first_language, family_income. All of these variables can influence voter choice as they are categories that can be associated with different policy measures introduced by the political parties in election campaigns. For instance, age could influence people's votes for a political party which offers future policies that the youth would be more concerned with. People in different provinces could gear towards parties that are more prominent there, Minority groups may vote for parties who recognize them and cater to their specific needs, marital status could influence ones votes as they gear towards parties that offer child care benefits, family income may influence peoples votes towards parties which promise economical benefits if they win. 
+
+
+```{r, echo=FALSE}
+# Use this to calculate some summary measures.
+#only done this for the survey data - should I do it for the census data too?
+#I'm not sure which stats to run for that though (Doesn't make sense to do so)
+#Will use census data in creating the plots 
+
+x <- survey_dataclean %>%
+  rowwise() %>% 
+      group_by(vote) %>%
+      summarise(Average_age = round(mean(age)),
+                Median_age = median(age),
+                Standard_deviation = sd(age))
+knitr::kable(x,  caption = "Table for Age statistics by Voters Choice. The summary measures we have calculated include: the average, median and standard deviation of the ages of voters for the different parties. As seen in table 1, the average voter age for conservatives is 58 years, liberals is 55 years and NDP is 42 years. The median 63, 60 and 43 respectively. This roughly tells us that the people who vote for conservatives are a sliglty older age group than those who vote for liberals or the NDP. It also shows us that the NDP has relatively young supporters whos median age is only 43. Very little difference is seen between the age groups of the conservatives and liberals roughly indicating that they probably have the same target age demographic. ")
+```
+
+
+```{r, echo=FALSE}
+y <- survey_dataclean %>%
+  rowwise() %>%
+  group_by(province, vote) %>%
+  summarise(Number_of_Votes=n())
+
+knitr::kable(y, caption = "Table for Total Voter Choice Count by Province. This table shows us the number of voters for each party by the different provinces. There are 10 provinces in Canada. The table shows us which party dominates in each of the provinces. From our table it seems that in Alberta the predominant political party is conservatives. Ontario seems to be largely dominated by the liberals and so is Quebec. This gives a rough idea of the provinces where more focus was given by the parties.")
+```
+
+
+## Data Visualization and Graphical Summaries
+
+```{r, echo = FALSE}
+# Use this to create some plots. Should probably describe both the sample and population.
+survey_dataclean %>%
+  ggplot(aes(x= education_level, fill= vote)) +
+  #theme(axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1)) +
+  theme_grey() +
+  geom_bar() +
+  coord_flip()+
+  #geom_smooth(method="lm", fill=NA) +
+  theme(axis.text.y = element_text(size=6)) +
+  labs(title = "Number of Voters by Voter choice
+       and Education Level",
+       x = "Education level",
+       y = "Count",
+       caption = "Figure 1.")
+```
+
+Figure 1. Figure 1 is the bar graph of the different educational groups the different party voters belong to. It seems that the people with a bachelors degree seem to favour the liberal party with the conservative party coming quite close. Those with a non-university diploma seem to be gearing towards the conservatives with the liberals coming in close. Those with less than a high school degree seem to be predominantly conservative party's voters.
+
+The graphs in the Appendix labelled Figure 5 and figure 6 are simply used to visualize the age distribution between our two data sets. Figure 6 shows the graph that visualizes the age distribution of the Census data seems to have much older voters with the mean age around 50. Figure 6 that shows us our survey data also has a bi-modal distribution with older voters and very young voters. There seem to be more older voters in our survey data compared to young voters. 
+
+
+The box plots visualized in the Appendix labelled Appendix figure 7
+show the median age of the voters by their voting choice. As calculated above the summary statistics show that the median age of the conservatives (symbolized by black line) is much higher than that of the NDP and slightly higher than the liberal party voters. The red dot signifies the mean age of the voters, once again conservative and liberals being much higher to NDP. It appears that the NDPs median and mean voting age is approximately the same. The width of the graphs signifies the proportion of voters for the different parties in our survey data set.
+
+
+```{r, echo=FALSE}
+survey_dataclean %>%
+  ggplot(aes(x= province, fill= vote)) +
+  #theme(axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1)) +
+  theme_grey() +
+  geom_bar() +
+  coord_flip()+
+  #geom_smooth(method="lm", fill=NA) +
+  labs(title = "Province vs. Count by Voter Choice",
+       x = "Province",
+       y = "Count")
+```
+Figure 2. This is a visualization of the summary statistic we had calculated for the number of voters by the different provinces. It appears from the graph that British Columbia is predominated by conservative party voters while Ontario is predominated by those of the liberal party. This graph is simply a visualization of the summary statistics provided in Table 2.
+
+
+## Methods
+
+In this report, we will be performing a logistic regression analysis in order to predict the results of the upcoming Canadian popular election, using group and individual level information, such as income, age and province. Logistic regression is a statistical tool that is based on modeling a binary response variable, meaning that it has two possible categorical values that are interpreted as 0 and 1. In this report, the logistic regression analysis will be performed three times to consider the Liberal, NDP, and Conservative party. In other words, in each model the response variable will correspond to 1 or 0, where 1 indicates whether the party of interest, Liberal, NDP, or Conservative, is being voted for. Our response variables for each model, vote_liberal, vote_conservative, and vote_NDP, all take on the value 1 if the respondent believes the liberal party will win the election and 0 otherwise. In logistic regression, we will denote the probability of the party in each model being voted for as "p". Therefore, our model is interpreted as the log odds of the party winning the upcoming Canadian popular election. 
+
+Our sample survey size of 290 respondents is large enough for logistic regression to be appropriate. We assume that the survey responses independent, and thus one respondent's choices do not affect the respondents of the next. We also assume that there is little multicollinearity between the explanatory variables. In this report, slight multicollinearity might exist as there may be some correlation between education level and province, since Ontario has the highest proportion of residents with undergraduate degrees in Canada. 
+
+In terms of explanatory variable selection, we will select explanatory variables for our final model based on significance level in the model summary. Each coefficient will return a p-value which corresponds to the null hypothesis that the coefficient is equal to 0. A low p-value will indicate a higher likelihood that we can reject that null hypothesis and prove significance for the indicators. Commonly, a p-value that is less than 0.05 is considered significant, therefore we will follow this protocol. 
+
+
+Our logistic regression model is as follows
+
+
+$$ log( \frac{p}{1-p} ) = \beta_0+\beta_1  x_{1} + ... + \beta_n  x_{n} +  \epsilon$$
+Where $p$ represents the probability of voting for a given party. $\beta_0$ represents the intercept of the logistic regression line and the $\beta_1... \beta_n$ coefficients correspond to the slope or the change in log odds for every one unit increase in each coefficients' respective explanatory variable. In this report, the model will incorporate both numerical and categorical data. Categorical data, such as province, is converted into dummy variable coding which assigns a reference category to one category of the variable, which all other categories are compared to. A random variable is assigned to all categories except the reference. The coefficients for these categorical variables indicate the difference in intercepts between the category of interest and the reference category. In our logistic regression model, the categorical random variable that is present will be included in the model and set equal to 1, meanwhile the remaining random variables for the categories can be set to 0. 
+
+For instance, $\beta_1$ represents the age of the participant, $\beta_2$ represents the province to which they belong,  $\beta_3$ represents their education level and $\beta_4$ represents whether the respondent belongs to a visible minority group. The coefficients here represents the change in log odds. 
+
+
+To account for the fact that our survey data may not be representative of the true population, we will  run a post-stratification model, in order to aggregate cell level estimates obtain by our logistic regression models, by weighting each cell by its relative proportion in the population. Post stratification will assist our model in more accurately predicting the outcome of the upcoming Canadian federal election. Post stratification involves subsetting the dataset into their respective demographic cells, computing the response variable for each cell, and finally collecting these estimates and extrapolating them up to a population-level estimate using weights. This will correct our lack of representative samples in the data that will more closely reflect the true population. 
+
+
+
+
+```{r, include=FALSE}
+#Conservative Model
+# Creating the Model for the conservative party vote, with all the available explenatory variables
+mylogit_conservative<-glm(vote_conservative ~ age + education_level +birth_place +
+                            province + marital_status + family_income +
+                            Visible_minority_group, data=survey_dataclean, family="binomial")
+#summary(mylogit_conservative)
+#summary(mylogit_conservative)
+
+#From the summary of the model with all available explenatory variables, we can limit down to the 4 statistically significant variables, age, education level, province, and whether a person belongs to a minority group. 
+#visible minority is not significant
+mylogit_conservative2<-glm(vote_conservative ~ age + education_level + province,
+                           data=survey_dataclean, family="binomial")
+#summary(mylogit_conservative2)
+#summary(mylogit_conservative2)
+#broom::tidy(mylogit_conservative2 )
+
+```
+
+
+
+
+```{r, include=FALSE}
+#*Liberal Model:* 
+mylogit_lib <-glm(vote_liberal ~ age + education_level +  province  + family_income,
+                  data = survey_dataclean, family = "binomial")
+#summary(mylogit_lib)
+
+
+#From the summary of the model with all available explanatory variables, we can limit down to the 4 variables used for the conservative model.  
+  
+mylogit_lib2 <-glm(vote_liberal ~ age + education_level + province,
+                   data=survey_dataclean, family = "binomial")
+
+#broom::tidy(mylogit_lib2)
+```
+
+
+
+```{r, include=FALSE}
+#*NDP Model:*
+# Creating the Model for the NDP party with all available explenatory varibles
+mylogit_ndp<-glm(vote_ndp ~ age + education_level +birth_place + province +
+                   marital_status + family_income + Visible_minority_group,
+                 data=survey_dataclean, family = "binomial")
+
+#summary(mylogit_ndp)
+
+#From the summary of the model with all available explanatory variables, we can limit down to the 4 variables used for the conservative model.  
+  
+mylogit_ndp2 <-glm(vote_ndp ~ age + education_level + province,
+                   data=survey_dataclean, family = "binomial")
+
+broom::tidy(mylogit_ndp2)
+  
+```
+
+
+
+## Post-Stratification 
+
+Now that we have created our logistic models for each of the parties of importance we begin the post-stratification process. The post stratification process is basically a method whereby the model which we created using our survey data is overlaid onto the census data to make inferences on the population. This means that we will be able to find the percentage of voters for each party for each sub-group of our population so we can make inferences on how our population will vote. 
+
+In order to estimate the proportion of voters who will vote for a given party, we run three stratification based on population level, education level, age, province, and minority weights. This will be useful for us as we want to predict the party that will be winning the election. Since, we have survey data we can now apply our modeling to the census data to make an inference on it to find the winner of the election.
+
+We thus have to obtain estimates for post stratification cells, by considering the combination of province (10 categories), education level (11 categories) and age (66 categories). This will give us a partitioned data set of a total of 3975 observations of a person belonging to a combination of each specific category. 
+
+These variables are all important to our study as they all explain the potential trends in voting for a particular party. Each demographic group will have different motivations for participating in the voting process and will clearly be influenced by the election agenda of the parties. As was mentioned earlier election campaigns can be targeted towards younger groups by making projections for issues like climate change, student loans while older age groups could be targeted by issues like retirement benefits and healthcare. Education level is also an important category for our analysis as it could potentially affect voter participation. People who are educated on the political sciences and are capable of making educated decisions can greatly influence the voter outcomes. Provinces are important as they help determine where the party's campaigning was most concentrated. Sometimes as part of campaigning strategies the more popular parties will compete for provinces that are highly populated. Therefore, making provinces a good variable to observe. 
+
+The stratification model is as follows, where $y$ represents the estimation of the probability of voting for a certain party:
+
+$$ \hat{y}^{PS} = \frac{\sum_{j=1}^{J} N_j \hat{y}_j}{\sum_{j=1}^{J} N_j }$$
+
+where $\hat{y}_J$ is the estimate of $y$ in cell $j$ and $N_j$ is the size of the jth cell in the population.  
+
+All analysis for this report was programmed using `R version 4.0.2`. 
+
+
+## Results 
+
+In all three models:
+
+* the y-intercept or $\hat{\beta}_0$ indicates the log odds of the party winning the upcoming Canadian federal election when all of the predictors are held at 0. 
+* $\hat{\beta}_1$ indicates the change in log odds of the party of interest winning the election for a one unit increase in age
+* $\hat{\beta}_2$ indicates the difference in log odds of the party of interest between subjects that are college educated and subjects that recieved a bachelor's degree
+* $\hat{\beta}_3$ indicates the difference in log odds of the party of interest between subjects that are high school educated and subjects that recieved a bachelor's degree
+* $\hat{\beta}_4$ indicates the difference in log odds of the party of interest between subjects that are less than high school educated and subjects that recieved a bachelor's degree
+* $\hat{\beta}_5$ indicates the difference in log odds of the party of interest between subjects that have received a university certificate or below and subjects that recieved a bachelor's degree
+* $\hat{\beta}_6$ indicates the difference in log odds of the party of interest between subjects that have received a bachelor's degree or higher and subjects that recieved a bachelor's degree
+* $\hat{\beta}_7$ indicates the difference in log odds of the party of interest between subjects that live in British Columbia and subjects that live in Alberta
+* $\hat{\beta}_8$ indicates the difference in log odds of the party of interest between subjects that live in Manitoba and subjects that live in Alberta
+* $\hat{\beta}_9$ indicates the difference in log odds of the party of interest between subjects that live in New Brunswick and subjects that live in Alberta
+* $\hat{\beta}_{10}$ indicates the difference in log odds of the party of interest between subjects that live in New Foundland and Labrador and subjects that live in Alberta
+* $\hat{\beta}_{11}$ indicates the difference in log odds of the party of interest between subjects that live in Nova Scotia and subjects that live in Alberta
+* $\hat{\beta}_{12}$ indicates the difference in log odds of the party of interest between subjects that live in Ontario and subjects that live in Alberta
+* $\hat{\beta}_{13}$ indicates the difference in log odds of the party of interest between subjects that live in PEI and subjects that live in Alberta
+* $\hat{\beta}_{14}$ indicates the difference in log odds of the party of interest between subjects that live in Quebec and subjects that live in Alberta
+* $\hat{\beta}_{15}$ indicates the difference in log odds of the party of interest between subjects that live in Saskatchewan and subjects that live in Alberta
+
+
+We first start by summarizing the results of the logistic models conducted above, which can be written as follows:
+
+*Conservative Logsitic  Model:*
+
+Let $p_{cons}$ be the probability of a random survey respondent voting for the conservative party, we can estimate this probability based on the following model
+
+$$\begin{aligned} log( \frac{p_{cons}}{1-p_{cons}} ) = 0.219 -0.026  x_{age} + 0.729x_{College \ Educated } \\
+-1.32x_{High \ School \ Educated} -0.078x_{ less \ than \ High \ School \ Educated} \\ + 0.273x_{University \ Certificate \ or \ Below}
+-0.408x_{Bachelor's \ Degree \ or \ Higher} \\-1.744x_{British\ Columbia}  -2.328x_{Manitoba} \\
+-2.682x_{New \ Brunswick} - 3.528x_{Newfoundland \ and \ Labrador}\\ -3.332x_{Nova \ Soctia}  -3.328x_{Ontario}\\ -3.339_{PEI} -2.808x_{Quebec} - 2.108x_{Saskatchewan} 
+\end{aligned}$$
+
+Based on our logistic regression model above, we can predict the probability of an average survey respondent who is 25 years old, has completed a college degree and lives in Ontario to vote for the conservative party as follows:
+
+$$
+\frac{e^{0.219 - 0.026 * 25 + 0.729 -3.328}}{1+e^{0.219 - 0.026 * 25 + 0.729 -3.328}} = 4.61\%
+$$
+*Liberal Logistic  Model:*
+
+Let $p_{lib}$ be the probability of a random survey respondent voting for the liberal party, we can estimate this probability based on the following model:
+
+$$
+\begin{aligned} log( \frac{p_{lib}}{1-p_{lib}} ) = -17.17 +0.00099x_{age} -0.755x_{College \ Educated }\\-1.235x_{High \ School \ Educated}
+-0.452x_{Less\  Than \ High \ School \ Educated} \\
+-0.0415_{University \ Certificate \ or \ Below}
+-0.260x_{Bachelor's \ Degree\ or \ higher} \\+16.8_{British \ Columbia} +16.7x_{Manitoba} \\
++17.2x_{New \ Brunswick} +18.2x_{Newfoundland \ and \ Labrador}\\ +17.7x_{Nova \ Soctia} +18.0x_{Ontario}\\ +18.5_{PEI} +18.1x_{Quebec} +16.7x_{Saskatchewan} 
+\end{aligned}
+$$
+
+Based on our logistic regression model above, we can predict the probability of an average survey respondent who is 25 years old, has completed a college degree and lives in Ontario to vote for the conservative liberal party as follows:
+
+$$
+\frac{e^{-17.17 +0.00099 * 25 -0.755 +18.0}}{1+e^{-17.17 +0.00099 * 25 -0.755 +18.0}} = 52.5\%
+$$
+
+
+*NDP Logsitic  Model:*
+
+
+Let $p_{ndp}$ be the probability of a random survey respondent voting for the conservative party, we can estimate this probability based on the following function
+
+$$
+\begin{aligned} log( \frac{p_{ndp}}{1-p_{ndp}} ) = 0.219 -0.044  x_{age} + 0.15x_{College \ Educated }\\ -0.26x_{High \ School \ Educated}
++ 0.94x_{Less \ Than \ High \ School\ Educated} \\ + 0.09x_{University \ Certificate \ or \ Below}
++ 0.371x_{Bachelor's \ Degree \ or \ higher}\\ -0.188x_{British \ Columbia} + 0.865x_{Manitoba} \\
++  0.655x_{New \ Brunswick}+  0.375x_{Newfoundland \ and \ Labrador}\\ +  0.715x_{Nova \ Soctia} +  0.1555x_{Ontario}\\ -15.161x_{PEI}-1.147x_{Quebec}+ 0.611x_{Saskatchewan} 
+\end{aligned}
+$$
+
+Based on our logistic regression model above, we can predict the probability of an average survey respondent who is 25 years old, has completed a college degree and lives in Ontario to vote for the NDP as follows:
+
+$$
+\frac{e^{0.219 - 0.044 * 25 + 0.15 + 1.555}}{1+e^{0.219 - 0.044 * 25 + 0.15 + 1.555}} = 69.5\%
+$$
+
+
+From the results above, we can see that we get vastly different predictions (4.61%, 5.25%, 6.95%) from our 3 models for the same individual who is 25, lives in Ontario and has a college diploma. We hypothesize this is because our sample is likely biased to survey respondents in Ontario and British Columbia and not indicative of the distribution of our true population. As such we ran our post-stratification, to increase the precision and reduce variance of our results, we run a post stratification calculation, where sampling weights are adjusted and under-represented groups are accounted for.The prediction probability is the proportion of total voters who will vote for each party. This is calculated using the following stratification methods: Firstly, we determine how many people fall between each combination of age, province, education and minority group. For example, the number of *15 year olds from Ontario that has less than a high school diploma is 17.* This is done for every combination of variables. 
+Then, the estimates are calculated for each subcategory and multiplied by the number of people per combination, which will result in the sampling weight. Finally, the sum of the weighted estimates for every combination is divided by the total number of people, giving us the weighted prediction probability fo each sub group. Now with the weighted prediction probability of each sub group, the average weighted prediction for each party is calculated.
+
+
+```{r, include=FALSE}
+# Here I will perform the post-stratification calculation for conservative
+model1<-glm(vote_conservative ~ age + education_level + province,
+                           data=survey_dataclean, family="binomial")
+
+census_data_counts <- census_data2 %>% 
+  group_by(age, education_level, province) %>% 
+  summarise(n=n())
+
+census_data_counts$estimate <-
+  model1 %>%
+  predict(newdata = census_data_counts, type="response")
+
+census_data_counts %>% 
+  mutate(liberal_predict_prop = estimate*n) %>%
+  group_by(age, province, education_level) %>%
+  summarise(liberal_predict = sum(liberal_predict_prop)/sum(n))
+
+n1 <- census_data_counts$n
+est <- census_data_counts$estimate
+
+weighted_average = sum(n1*est)/sum(n1)
+
+
+
+```
+
+
+
+```{r, include= FALSE}
+# Here I will perform the post-stratification calculation for Liberal
+model2 <-glm(vote_liberal ~ education_level + province + age,
+             data=survey_dataclean, family = "binomial")
+
+census_data_counts2 <- census_data2 %>% 
+  group_by(age, province, education_level) %>% 
+  summarise(n=n())
+
+census_data_counts2$estimate <-
+  model2 %>%
+  predict(newdata = census_data_counts2, type="response")
+
+census_data_counts2 %>% 
+  mutate(conservative_predict_prop = estimate*n) %>%
+  group_by(age, province, education_level) %>%
+  summarise(conservative_predict = sum(conservative_predict_prop)/sum(n))
+
+n2 <- census_data_counts2$n
+est2 <- census_data_counts2$estimate
+
+weighted_average2 = sum(n2*est2)/sum(n2)
+
+```
+
+
+```{r, include=FALSE}
+# Here I will perform the post-stratification calculation for NDP
+model3 <-glm(vote_ndp ~ age + education_level + province,
+                   data=survey_dataclean, family = "binomial")
+
+census_data_counts3 <- census_data2 %>% 
+  group_by(age, province, education_level) %>% 
+  summarise(n=n())
+
+census_data_counts3$estimate <-
+  model3 %>%
+  predict(newdata = census_data_counts3, type="response")
+
+census_data_counts3 %>% 
+  mutate(ndp_predict_prop = estimate*n) %>%
+  group_by(age, province, education_level) %>%
+  summarise(ndp_predict = sum(ndp_predict_prop)/sum(n))
+
+n3 <- census_data_counts3$n
+est3 <- census_data_counts3$estimate
+weighted_average3 = sum(n3*est3)/sum(n3)
+
+
+```
+
+
+```{r, echo = FALSE}
+# Here you can include some relevant visualizations.
+# Here you can include some relevant visualizations.
+
+libage1 <- summarise(group_by(census_data_counts, age), estimate=mean(estimate), Party = "conservative")
+conage1 <- summarise(group_by(census_data_counts2, age), estimate=mean(estimate), Party = "Liberal")
+ndpage1 <- summarise(group_by(census_data_counts3, age), estimate=mean(estimate), Party = "NDP")
+
+mergedprov <- do.call("rbind",list(libage1, conage1, ndpage1))
+ggplot(mergedprov, aes(x = age, y = estimate, color = Party)) + geom_point()+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1)) + labs(title = "Age and  Party Vote Estimate",
+       x = "Age",
+       y = "Vote Estimate",
+       caption = "Figure 3") 
+```
+Figure 3. The data was plotted by categorizing the age (e.g there are nine 15 year-olds and eleven 16 year-olds etc.) and plotting it against the mean of the probability of each age group. The conservative portrays a relatively strong positive relationship between, age and the probability of voting, whereas for the liberal party there is a weaker positive relationship, as shown by the less steep slope. This indicates that the probability of voting for the conservative increases for the older generation, and that for the liberal party the relationship still exists, but is less significant. This could be the cause of the overall popularity of the liberal party across all age groups.For the NDP party, there is a strong negative correlation between age and the probability of voting for the NDP, this can be explained by the popularity of the NDP by the younger generation, and the reason this party applies emphasis on targeting the youth population.
+
+```{r, echo = FALSE}
+##########
+edcon <- summarise(group_by(census_data_counts, education_level), estimate=mean(estimate), Party = "Conservative")
+
+edlib <- summarise(group_by(census_data_counts2, education_level), estimate=mean(estimate), Party = "Liberal")
+
+edndp <- summarise(group_by(census_data_counts3, education_level), estimate=mean(estimate), Party = "NDP")
+
+mergeded <- do.call("rbind", list(edcon, edlib, edndp))
+
+ggplot(mergeded, aes(x = education_level, y = estimate, color = Party)) + geom_point()+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1)) + labs(title = "Figure 4 - Education Level and  Party Vote Estimate",
+       x = "Education Level",
+       y = "Vote Estimate",
+       caption = "Figure 4") + scale_x_discrete(labels=c("Bachelor's Degree", "College or non-uni certificate", "High School Diploma", "< High School Diploma", "Uni Certificate (< Bachelor)", "Uni Certificate (> Bachelor)"))
+
+sum_table <- data.frame(c("Conservative", "Liberal", "NDP"), c(weighted_average, weighted_average2, weighted_average3))
+names(sum_table)[1] <- " Party"
+names(sum_table)[2] <- " Estimate"
+knitr::kable(sum_table,  caption = "Predicted Vote Outcome By Party")
+
+
+```
+Figure 4. The figure displays the probability of a member voting for a certain party based on an individual's education level, with point in red representing votes for the conservative party, points in green representing the probability of voting for the liberal party and points in blue representing votes for the NDP. For example, all else being equal, random respondent of the census who's highest education level is a Bachelor's Degree, have a 52.6% chance of voting for the liberal party, a 30.7% chance of voting for the conservative party, and a 16.4% chance of voting for the NDP. 
+
+We notice, that on average, when a respondent of the census has completed a higher degree of education such as a Bachelor's Degree, they have a much higher likelihood to vote for the  Liberal Party . However, we do notice that on average that those who received less than a high school diploma had a higher likelihood to vote for the liberal party, which seemed to not be consistent with the rest of our data. Figure 9 in the appendix indicates that the probability of voting for the liberal party, broken down by education level, sees higher variance that for the conservative party or the 
+
+Students who completed a college or non-uni certificate are the most representative of the broader census, with a breakdown of voting for the Conservative, Liberal and NDP party of  43.2%, 38% and 18.8% respectively, relative to the broader sample of at 45.3%, 38.5% and 16.2%. 
+
+Taking our example from above, after running our post-stratification model, we predict that an average census respondent who is 25, lives in Ontario and has at most completed college  degree, has a 15.1% chance of voting for the conservative party, a 53.1% chance of voting for the liberal party and a 36.1% chance of voting for the NDP, which is a more reasonable estimate giving the distribution of our census. More generally, the estimated probability to vote for each party in our census can be summarized in Table 3.
+
+The weighted average of each party was calculated by the following steps:
+First we multiply each subgroup prediction by the number of people in the sub-group, then the sum for all subgroups is calculated. Finally, this sum is divided by the total number of people to yield the weighted average prediction of a party. The weighted average states that there is a 38.5% chance the liberal party wins, 45.3% the conservative party wins and 13.7% the NDP wins the election.
+
+
+
+
+\newpage
+## Conclusions
+
+<Here you should give a summary of the Hypotheses, Methods and Results>
+
+<Highlight Key Results.>
+
+<Talk about big picture.>
+
+<Comment on any Weaknesses.>
+
+<Comment on Future Work/Next Steps>
+
+<End with a concluding paragraph to wrap up the report.>
+
+
+\newpage
+## Bibliography
+
+1. Grolemund, G. (2014, July 16) *Introduction to R Markdown*. RStudio. [https://rmarkdown.rstudio.com/articles_intro.html](https://rmarkdown.rstudio.com/articles_intro.html). (Last Accessed: January 15, 2021) 
+
+2. Dekking, F. M., et al. (2005) *A Modern Introduction to Probability and Statistics: Understanding why and how.* Springer Science & Business Media.
+
+3.  Allaire, J.J., et. el. *References: Introduction to R Markdown*. RStudio. [https://rmarkdown.rstudio.com/docs/](https://rmarkdown.rstudio.com/docs/). (Last Accessed: January 15, 2021) 
+
+4. Holtz, Y.,  *Boxplot*, the R graph gallery, 
+[https://www.r-graph-gallery.com/boxplot.html](https://www.r-graph-gallery.com/boxplot.html)(Last Accessed: November 5, 2021)
+
+5. CRDN, (nd), *GSS (General Social Survey - Family)*
+[https://crdcn.org/datasets/gss-general-social-survey-family](https://crdcn.org/datasets/gss-general-social-survey-family)
+
+
+
+## Appendix 
+
+
+
+```{r, echo = FALSE}
+
+plot_x<- census_data2 %>%
+  ggplot(aes(x=round(age)))+ 
+  theme_grey() +
+  geom_histogram(
+    bins = 20,
+    colour = "black",
+    fill = "lightgrey") +
+  theme(plot.title = element_text(size=12))+
+  labs(title = "Distribution of Age in Census Data",
+       x = "Age",
+       y = "Density",
+       caption = "Figure 5.")
+
+plot_y<- survey_dataclean %>%
+  ggplot(aes(x=round(age)))+ 
+  theme_grey() +
+  geom_histogram(
+    bins = 20,
+    colour = "black",
+    fill = "light pink") +
+  theme(plot.title = element_text(size=12))+
+  labs(title = "Distribution of Age in Survey Data",
+       x = "Age",
+       y = "Density",
+      caption = "Figure 6.")
+
+
+gridExtra::grid.arrange(plot_x, plot_y, ncol=2)
+```
+
+Figures 5 & 6. The graphs in Figure 5 and 6 visualize the age distribution between our two data sets. Figure 5 appears negatively skewed, as most of the values are clustered around right tail of the distribution and the left tail is longer. Figure 6 appears to exhibit a slightly bimodal distribution with peaks at age ~ 25 and age ~ 60. 
+
+```{r, echo = FALSE}
+survey_dataclean %>%
+  ggplot(aes(x=as.factor(vote), y=age)) + 
+  theme_grey() +
+  geom_boxplot(varwidth = TRUE) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="red")+
+  labs(title = "Voter Choice and Age",
+       x = "Voter Choice",
+       y = "Age",
+       caption = "Figure 7.")
+```
+
+Figure 7. The box plots visualized demonstrate the median age of the voters by their voting choice. The red dot signifies the mean age of the voters. All 3 political parties appear skewed. The conservative party is centered at ~ age 60 and is left-skewed towards higher ages. The liberal party is also centered at ~ age 60 and is left-skewed towards higher ages. The NDP party is centered at ~ age 40 and appears slightly left-skewed towards higher ages. 
+
+```{r, echo = FALSE}
+ggplot(census_data_counts, aes(x = education_level, y = estimate)) + geom_boxplot(varwidth = TRUE)+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))+  stat_summary(fun=mean, geom="point", shape=20, size=3, color="red")+ labs(title = "Figure 8 - Education and Conservative Party Vote",
+       x = "Education Level",
+       y = "Conservative Vote Estimate", caption = "Figure 8") + scale_x_discrete(labels=c("Bachelor's Degree", "College or non-uni certificate", "High School Diploma", "< High School Diploma", "Uni Certificate (< Bachelor)", "Uni Certificate (> Bachelor)"))
+
+ggplot(census_data_counts2, aes(x = education_level, y = estimate)) + geom_boxplot(varwidth = TRUE)+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))+  stat_summary(fun=mean, geom="point", shape=20, size=3, color="red")+ labs(title = "Figure 9 -Education Level and Liberal  Vote",
+       x = "Education Level",
+       y = "Liberal Vote Estimate", caption = "Figure 9") + scale_x_discrete(labels=c("Bachelor's Degree", "College or non-uni certificate", "High School Diploma", "< High School Diploma", "Uni Certificate (< Bachelor)", "Uni Certificate (> Bachelor)"))
+
+ggplot(census_data_counts3, aes(x = education_level, y = estimate)) + geom_boxplot(varwidth = TRUE)+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))+  stat_summary(fun=mean, geom="point", shape=20, size=3, color="red")+ labs(title = "Figure 10 -Education Level and NDP Vote",
+       x = "Education Level",
+       y = "NDP  Vote Estimate", caption = "Figure 10") + scale_x_discrete(labels=c("Bachelor's Degree", "College or Non-Uni certificate", "High School Diploma", "< High School Diploma", "Uni Certificate (< Bachelor)", "Uni Certificate (> Bachelor)"))
+
+
+```
+Figure 8-10:
+
+The figures portrays the probability of a random member of the census to vote for each given party, broken down by their relevant highest level education. The red dot signifies the mean probability of voting for a given party, whereas the boxplot demonstrates the mean probability.
+The probability of voting for a given party appears to be skewed for all education levels. 
+
+We notice that there is a higher variance and Inter-Quartile range for liberal votes, relative to those of the NDP or the conservative party. We also notice that census respondents whose maximum education level is a high school diploma show higher variance as well, across votes for the three parties. Finally, there appears to be more outliers when considering to vote for the conservative party. 
+
+
+
+```{r, echo = FALSE}
+consprov <- summarise(group_by(census_data_counts, province), estimate=mean(estimate), Party = "Conservative")
+
+libprov <- summarise(group_by(census_data_counts2, province), estimate=mean(estimate), Party = "Liberal")
+
+ndpprov <- summarise(group_by(census_data_counts3, province), estimate=mean(estimate), Party = "NDP")
+
+mergedprov <- do.call("rbind", list(libprov, consprov, ndpprov))
+
+ggplot(mergedprov, aes(x = province, y = estimate, color = Party)) + geom_point()+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1)) + labs(title = "Figure 11 - Province and  Party Vote Estimate",
+       x = "Province",
+       y = "Vote Estimate",
+       caption = "Figure 11") 
+```
+
+Figure 11. The figure portrays the probability of a random member of the census to vote for each given party, broken down by their relevant  province. We can see that vote estimates are the highest in 6 out of the 10 provinces for the liberals and in the remaining 4 provinces it is dominated by the conservatives. Furthermore, we note that the vote estimate for Alberta, a province whose economy is primarily dominated by energy,  is near zero for liberals and approximately 84.5% for conservatives, which aligns with the conservative party's pro energy stance. This can also be said for Saskatchewan, British Columbia, and Manitoba, who have  more energy-driven economies relative to those of Quebec and Ontario, where the liberal  party has gained the majority of the votes. 
+
+
